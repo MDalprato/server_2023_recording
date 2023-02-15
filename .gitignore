@@ -105,3 +105,6 @@ dist
 
 # HLS folder
 public/api/v1/hls
+
+# recs
+recs/

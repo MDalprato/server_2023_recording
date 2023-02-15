@@ -2,15 +2,16 @@
 const fs = require('fs');
 const ffmpegPath = require('@ffmpeg-installer/ffmpeg').path;
 const ffmpeg = require('fluent-ffmpeg');
-const Cam = require('onvif').Cam;
-const { promisify } = require("util");
-const insertRecFrame = require('./db/insertRecFrame');
-const { recSettings } = require('./settings');
+const mongoose = require("mongoose");
+
 
 ffmpeg.setFfmpegPath(ffmpegPath);
 
+const savePathLive = (__dirname + '/recs/');
+
+
 function createFolder(camId) {
-  var dir = recSettings.savePath + formatCamId(camId) + '/Live';
+  var dir = savePathLive + formatCamId(camId) + '/Live';
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -21,8 +22,13 @@ function formatCamId(camId) {
 }
 
 function getHlsStreamPath(camId) {
-  return recSettings.savePath + formatCamId(camId) + "/Live/stream.m3u8";
+  const data = savePathLive + formatCamId(camId) + "/Live/stream.m3u8";
+  console.log(data)
+  return data;
 }
+
+mongoose.connect('mongodb://localhost:27017/rec_test');
+
 
 const outputOptions = [
 
@@ -63,47 +69,52 @@ function loadHLS(url, camId) { // do something when encoding is done }
   ffmpeg(url, { timeout: 432000 })
     .addOptions(prova)
     .output(getHlsStreamPath(camId))
-    .on("end", loadHLS)
+    // .on("end", loadHLS)
     .on('error', function (err) {
       console.log('An error occurred: ' + err.message);
     })
     .on('start', function (commandLine) {
-      // console.log('Spawned Ffmpeg with command: ' + commandLine);
+      console.log('Spawned Ffmpeg with command: ' + commandLine);
     })
     .on('codecData', function (data) {
-      // console.log('Input is ' + data.audio + ' audio ' +  'with ' + data.video + ' video');
+      console.log('Input is ' + data.audio + ' audio ' + 'with ' + data.video + ' video');
     })
     .on('stderr', function (stderrLine) {
-      writeTsToDb(stderrLine, camId);
+      console.log('stderr');
+
+      //writeTsToDb(stderrLine, camId);
     })
     .on('progress', function (progress) {
+      console.log("progress")
       //{"frames":37,"currentFps":0,"currentKbps":null,"targetSize":null,"timemark":"00:00:02.30"}
     })
     .run()
 
 };
 
-function writeTsToDb(stderrLine, camId) {
+// function writeTsToDb(stderrLine, camId) {
 
-  if (stderrLine.includes('Opening')) {
+//   if (stderrLine.includes('Opening')) {
 
-    var arrStr = stderrLine.split(/(?:^|\s)'([^']*?)'(?:$|\s)/);
+//     var arrStr = stderrLine.split(/(?:^|\s)'([^']*?)'(?:$|\s)/);
 
-    console.log("Create new file -> " + stderrLine + arrStr[1])
+//     console.log("Create new file -> " + stderrLine + arrStr[1])
 
-    const currentDate = new Date();
+//     const currentDate = new Date();
 
-    const currentTsData = {
-      cameraId: camId,
-      startTime: currentDate.getTime(),
-      path: arrStr[1],
-    }
+//     const currentTsData = {
+//       cameraId: camId,
+//       startTime: currentDate.getTime(),
+//       path: arrStr[1],
+//     }
 
-    insertRecFrame.addSingleFrameToDb(currentTsData).then(function (result) {
-      console.log(result)
-    });
+//     insertRecFrame.addSingleFrameToDb(currentTsData).then(function (result) {
+//       console.log(result)
+//     });
 
 
-  }
+//   }
 
-}
+// }
+
+loadHLS("rtsp://root:Abcd123$@192.168.5.126:554/axis-media/media.amp?videocodec=h264&camera=1&resolution=640x360", 1)
